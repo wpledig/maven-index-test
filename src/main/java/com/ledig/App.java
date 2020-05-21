@@ -8,6 +8,8 @@ import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.Bits;
+import org.apache.maven.artifact.DefaultArtifact;
+import org.apache.maven.artifact.handler.ArtifactHandler;
 import org.apache.maven.index.ArtifactInfo;
 import org.apache.maven.index.ArtifactInfoFilter;
 import org.apache.maven.index.ArtifactInfoGroup;
@@ -32,6 +34,8 @@ import org.apache.maven.index.updater.IndexUpdateResult;
 import org.apache.maven.index.updater.IndexUpdater;
 import org.apache.maven.index.updater.ResourceFetcher;
 import org.apache.maven.index.updater.WagonHelper;
+import org.apache.maven.project.*;
+import org.apache.maven.repository.internal.MavenRepositorySystemUtils;
 import org.apache.maven.wagon.Wagon;
 import org.apache.maven.wagon.events.TransferEvent;
 import org.apache.maven.wagon.events.TransferListener;
@@ -43,26 +47,40 @@ import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.PlexusContainerException;
 import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
 import org.codehaus.plexus.util.StringUtils;
-import org.eclipse.aether.util.version.GenericVersionScheme;
-import org.eclipse.aether.version.InvalidVersionSpecificationException;
-import org.eclipse.aether.version.Version;
+import org.apache.maven.artifact.Artifact;
+import org.eclipse.aether.DefaultRepositorySystemSession;
+import org.eclipse.aether.RepositorySystem;
+import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.collection.CollectRequest;
+import org.eclipse.aether.connector.basic.BasicRepositoryConnectorFactory;
+import org.eclipse.aether.graph.Dependency;
+import org.eclipse.aether.graph.DependencyFilter;
+import org.eclipse.aether.impl.DefaultServiceLocator;
+import org.eclipse.aether.repository.LocalRepository;
+import org.eclipse.aether.repository.RemoteRepository;
+import org.eclipse.aether.resolution.ArtifactResult;
+import org.eclipse.aether.resolution.DependencyRequest;
+import org.eclipse.aether.resolution.DependencyResolutionException;
+import org.eclipse.aether.resolution.DependencyResult;
+import org.eclipse.aether.spi.connector.RepositoryConnectorFactory;
+import org.eclipse.aether.spi.connector.transport.TransporterFactory;
+import org.eclipse.aether.transport.file.FileTransporterFactory;
+import org.eclipse.aether.transport.http.HttpTransporterFactory;
+import org.eclipse.aether.util.artifact.JavaScopes;
+import org.eclipse.aether.util.filter.DependencyFilterUtils;
+
+
 
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 
-public class App 
+public class App
 {
-    public static void main( String[] args ) throws IOException, PlexusContainerException, ComponentLookupException {
 
-        System.out.println("hello!");
-
-
+    public static void main( String[] args ) throws IOException, PlexusContainerException, ComponentLookupException, ProjectBuildingException, DependencyResolutionException {
         final DefaultContainerConfiguration config = new DefaultContainerConfiguration();
         config.setClassPathScanning( PlexusConstants.SCANNING_INDEX );
         PlexusContainer plexusContainer = new DefaultPlexusContainer( config );
@@ -150,8 +168,66 @@ public class App
         FlatSearchResponse response = ind.searchFlat( new FlatSearchRequest(boolQ, centralContext) );
         Set<ArtifactInfo> resList = response.getResults();
         System.out.println("Received " + resList.size() + " results:\n");
+
         for (ArtifactInfo info : resList) {
             System.out.println("Name: " + info.getName() + " v" + info.getVersion());
+            System.out.println("--------------------------");
+
+            DefaultServiceLocator locator = MavenRepositorySystemUtils.newServiceLocator();
+            RepositorySystem system = newRepositorySystem(locator);
+            RepositorySystemSession session = newSession(system);
+            org.eclipse.aether.artifact.Artifact artifact = infoToAetherArt(info);
+            RemoteRepository central = new RemoteRepository.Builder("central", "default", "https://repo1.maven.org/maven2/").build();
+
+            CollectRequest collectRequest = new CollectRequest(new Dependency(artifact, JavaScopes.COMPILE), Arrays.asList(central));
+            DependencyFilter filter = DependencyFilterUtils.classpathFilter(JavaScopes.COMPILE);
+            DependencyRequest request = new DependencyRequest(collectRequest, filter);
+            DependencyResult result = system.resolveDependencies(session, request);
+
+            for (ArtifactResult artifactResult : result.getArtifactResults()) {
+                org.eclipse.aether.artifact.Artifact curArt = artifactResult.getArtifact();
+                System.out.println(curArt.getGroupId() + "." + curArt.getArtifactId() + "." + curArt.getVersion());
+            }
+
+            System.out.println("--------------------------");
+            System.out.println();
         }
     }
+
+    private static RepositorySystem newRepositorySystem(DefaultServiceLocator locator) {
+        locator.addService(RepositoryConnectorFactory.class, BasicRepositoryConnectorFactory.class);
+        locator.addService(TransporterFactory.class, FileTransporterFactory.class);
+        locator.addService(TransporterFactory.class, HttpTransporterFactory.class);
+        return locator.getService(RepositorySystem.class);
+    }
+
+    private static RepositorySystemSession newSession(RepositorySystem system) {
+        DefaultRepositorySystemSession session = MavenRepositorySystemUtils.newSession();
+        LocalRepository localRepo = new LocalRepository("target/local-repo");
+        session.setLocalRepositoryManager(system.newLocalRepositoryManager(session, localRepo));
+        return session;
+    }
+
+//    private static Artifact infoToArt(ArtifactInfo info) {
+//        return new DefaultArtifact(info.getGroupId(), info.getArtifactId(), info.getVersion(),
+//                "compile",
+//                info.getPackaging() != null ? info.getPackaging() : "jar",
+//                info.getClassifier(), new DefaultArtifactHandler());
+//    }
+
+    private static org.eclipse.aether.artifact.Artifact infoToAetherArt(ArtifactInfo info) {
+        return new org.eclipse.aether.artifact.DefaultArtifact(info.getGroupId(), info.getArtifactId(),
+                info.getClassifier(),
+                info.getFileExtension(),
+                info.getVersion());
+    }
+
+//    private static MavenProject getProject(Artifact art) throws ProjectBuildingException {
+//        ProjectBuilder builder = new DefaultProjectBuilder();
+//        ProjectBuildingRequest req = new DefaultProjectBuildingRequest();
+//        req.setProject(null);
+//        //req.setRemoteRepositories();
+//        ProjectBuildingResult res = builder.build(art, req);
+//        return res.getProject();
+//    }
 }

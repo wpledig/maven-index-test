@@ -12,6 +12,8 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.source>1.7</maven.compiler.source>
     <maven.compiler.target>1.7</maven.compiler.target>
+    <aetherVersion>1.1.0</aetherVersion>
+    <mavenVersion>3.3.9</mavenVersion>
   </properties>
 
   <dependencies>
@@ -31,16 +33,6 @@
       <artifactId>org.eclipse.sisu.plexus</artifactId>
       <version>0.3.4</version>
     </dependency>
-<!--    <dependency>-->
-<!--      <groupId>org.codehaus.plexus</groupId>-->
-<!--      <artifactId>plexus-utils</artifactId>-->
-<!--      <version>3.3.0</version>-->
-<!--    </dependency>-->
-<!--    <dependency>-->
-<!--      <groupId>org.codehaus.plexus</groupId>-->
-<!--      <artifactId>plexus-container-default</artifactId>-->
-<!--      <version>2.1.0</version>-->
-<!--    </dependency>-->
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
@@ -57,8 +49,47 @@
       <version>3.4.0</version>
       <scope>compile</scope>
     </dependency>
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-project</artifactId>
+      <version>2.2.1</version>
+    </dependency>
+<!--    <dependency>-->
+<!--      <groupId>org.apache.maven</groupId>-->
+<!--      <artifactId>maven-core</artifactId>-->
+<!--      <version>3.6.3</version>-->
+<!--    </dependency>-->
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-artifact</artifactId>
+      <version>3.6.3</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.aether</groupId>
+      <artifactId>aether-impl</artifactId>
+      <version>${aetherVersion}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.aether</groupId>
+      <artifactId>aether-connector-basic</artifactId>
+      <version>${aetherVersion}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.aether</groupId>
+      <artifactId>aether-transport-file</artifactId>
+      <version>${aetherVersion}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.aether</groupId>
+      <artifactId>aether-transport-http</artifactId>
+      <version>${aetherVersion}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-aether-provider</artifactId>
+      <version>${mavenVersion}</version>
+    </dependency>
   </dependencies>
-
 
   <build>
     <pluginManagement><!-- lock down plugins versions to avoid using Maven defaults (may be moved to parent pom) -->
@@ -112,6 +143,22 @@
           <configuration>
             <mainClass>com.ledig.App</mainClass>
           </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>1.4.1</version>
+          <configuration>
+            <rules><dependencyConvergence/></rules>
+          </configuration>
+          <executions>
+            <execution>
+              <phase>compile</phase>
+              <goals>
+                <goal>enforce</goal>
+              </goals>
+            </execution>
+          </executions>
         </plugin>
       </plugins>
     </pluginManagement>
