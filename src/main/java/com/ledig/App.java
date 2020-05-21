@@ -58,10 +58,7 @@ import org.eclipse.aether.graph.DependencyFilter;
 import org.eclipse.aether.impl.DefaultServiceLocator;
 import org.eclipse.aether.repository.LocalRepository;
 import org.eclipse.aether.repository.RemoteRepository;
-import org.eclipse.aether.resolution.ArtifactResult;
-import org.eclipse.aether.resolution.DependencyRequest;
-import org.eclipse.aether.resolution.DependencyResolutionException;
-import org.eclipse.aether.resolution.DependencyResult;
+import org.eclipse.aether.resolution.*;
 import org.eclipse.aether.spi.connector.RepositoryConnectorFactory;
 import org.eclipse.aether.spi.connector.transport.TransporterFactory;
 import org.eclipse.aether.transport.file.FileTransporterFactory;
@@ -80,7 +77,7 @@ import java.util.*;
 public class App
 {
 
-    public static void main( String[] args ) throws IOException, PlexusContainerException, ComponentLookupException, ProjectBuildingException, DependencyResolutionException {
+    public static void main( String[] args ) throws IOException, PlexusContainerException, ComponentLookupException, ProjectBuildingException, DependencyResolutionException, ArtifactDescriptorException {
         final DefaultContainerConfiguration config = new DefaultContainerConfiguration();
         config.setClassPathScanning( PlexusConstants.SCANNING_INDEX );
         PlexusContainer plexusContainer = new DefaultPlexusContainer( config );
@@ -173,6 +170,7 @@ public class App
             System.out.println("Name: " + info.getName() + " v" + info.getVersion());
             System.out.println("--------------------------");
 
+            // Code adapted from org.netbeans.modules.maven.indexer.ArtifactDependencyIndexCreator
             DefaultServiceLocator locator = MavenRepositorySystemUtils.newServiceLocator();
             RepositorySystem system = newRepositorySystem(locator);
             RepositorySystemSession session = newSession(system);
@@ -216,6 +214,8 @@ public class App
 //    }
 
     private static org.eclipse.aether.artifact.Artifact infoToAetherArt(ArtifactInfo info) {
+        System.out.println("classifier: " + info.getClassifier());
+        System.out.println("extension: " + info.getFileExtension());
         return new org.eclipse.aether.artifact.DefaultArtifact(info.getGroupId(), info.getArtifactId(),
                 info.getClassifier(),
                 info.getFileExtension(),
