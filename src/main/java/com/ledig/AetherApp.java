@@ -43,22 +43,46 @@ import java.util.*;
 
 public class AetherApp
 {
+    private static RepositorySystem system;
+    private static RemoteRepository central;
+    private static RepositorySystemSession session;
+
     public static void main( String[] args ) throws DependencyResolutionException, ArtifactDescriptorException {
 
-        Artifact artifact = new DefaultArtifact("com.twilio.sdk:twilio:7.1.0");
+        Artifact root = new DefaultArtifact("com.twilio.sdk:twilio:7.1.0");
 
-        // Code adapted from org.netbeans.modules.maven.indexer.ArtifactDependencyIndexCreator
+        Set<Artifact> visitedSet = new HashSet<>();
+        Queue<Artifact> nodeQ = new LinkedList<>();
+        nodeQ.add(root);
+
+        // Setup + helper functions adapted from org.netbeans.modules.maven.indexer.ArtifactDependencyIndexCreator
         DefaultServiceLocator locator = MavenRepositorySystemUtils.newServiceLocator();
-        RepositorySystem system = newRepositorySystem(locator);
-        RepositorySystemSession session = newSession(system);
-        RemoteRepository central = new RemoteRepository.Builder("central", "default", "https://repo1.maven.org/maven2/").build();
+        system = newRepositorySystem(locator);
+        session = newSession(system);
+        central = new RemoteRepository.Builder("central", "default", "https://repo1.maven.org/maven2/").build();
 
+        while (!nodeQ.isEmpty()) {
+            Artifact curArt = nodeQ.remove();
+
+            System.out.println("Visiting artifact: " + curArt.toString());
+
+            List<Dependency> dependencies = getDependencies(curArt);
+            for (Dependency nextDep : dependencies) {
+                if (visitedSet.contains(nextDep.getArtifact())) {
+                    System.out.println("*** Encountered duplicate artifact: " + curArt);
+                } else {
+                    nodeQ.add(nextDep.getArtifact());
+                    visitedSet.add(nextDep.getArtifact());
+                }
+            }
+        }
+
+    }
+
+    private static List<Dependency> getDependencies(Artifact artifact) throws ArtifactDescriptorException {
         ArtifactDescriptorRequest artRequest = new ArtifactDescriptorRequest(artifact, Arrays.asList(central), null);
         ArtifactDescriptorResult artResult = system.readArtifactDescriptor(session, artRequest);
-
-        for (Dependency dependency : artResult.getDependencies()) {
-            System.out.println(dependency);
-        }
+        return artResult.getDependencies();
     }
 
     private static RepositorySystem newRepositorySystem(DefaultServiceLocator locator) {
